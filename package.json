@@ -1,0 +1,15 @@
+{
+  "name": "voice-reminder",
+  "version": "0.1.0",
+  "dependencies": {
+    "react": "18.2.0",
+    "react-native": "0.73.0",
+    "react-native-push-notification": "^8.1.1",
+    "react-native-tts": "^4.1.0",
+    "react-native-voice": "^0.3.0",
+    "@react-native-async-storage/async-storage": "^1.18.2",
+    "@react-navigation/native": "^6.1.7",
+    "@react-navigation/stack": "^6.3.17",
+    "date-fns": "^2.30.0"
+  }
+}
