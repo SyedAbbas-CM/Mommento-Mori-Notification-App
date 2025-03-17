@@ -1,27 +1,46 @@
-// App.js - Main navigation container
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
-import HomeScreen from './screens/HomeScreen';
-import AddReminderScreen from './screens/AddReminderScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import { initNotifications } from './services/notificationService';
+// utils/permissionUtils.js - Handle permissions for the app
+import { Platform, PermissionsAndroid } from 'react-native';
 
-const Stack = createStackNavigator();
+// Request microphone permission for voice recording
+export const requestMicrophonePermission = async () => {
+  try {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Microphone Permission',
+          message: 'App needs access to your microphone to record voice reminders.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } else if (Platform.OS === 'ios') {
+      // For iOS, permissions are handled by the voice recognition library
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('Error requesting microphone permission:', err);
+    return false;
+  }
+};
 
-export default function App() {
-  React.useEffect(() => {
-    // Initialize push notifications when app starts
-    initNotifications();
-  }, []);
+// Request notification permissions (mainly for iOS)
+export const requestNotificationPermissions = async () => {
+  // For Android, notifications permissions are requested when creating channel
+  // For iOS, handled by react-native-push-notification
+  return true;
+};
 
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Voice Reminders' }} />
-        <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ title: 'New Reminder' }} />
-        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
+// Request all needed permissions for the app
+export const requestAllPermissions = async () => {
+  const mic = await requestMicrophonePermission();
+  const notifications = await requestNotificationPermissions();
+  
+  return {
+    microphone: mic,
+    notifications: notifications,
+  };
+};

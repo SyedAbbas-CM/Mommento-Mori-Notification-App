@@ -1,5 +1,5 @@
 // components/ReminderForm.js - Form for creating/editing reminders
-import React from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';

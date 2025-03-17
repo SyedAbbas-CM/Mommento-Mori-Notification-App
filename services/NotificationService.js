@@ -1,87 +1,166 @@
-// services/notificationService.js - Push notification handling
+// services/NotificationService.js - Enhanced push notification handling
 import PushNotification from 'react-native-push-notification';
-import { playVoiceMessage } from './ttsService';
+import { playVoiceMessage, stopVoiceMessage } from './ttsService';
 import { getSettings } from './StorageService';
 
 export const initNotifications = () => {
   // Configure the notification service
   PushNotification.configure({
-    // (required) Called when a remote or local notification is opened or received
+    // Called when a notification is received or opened
     onNotification: async function (notification) {
-      console.log('NOTIFICATION:', notification);
+      console.log('NOTIFICATION RECEIVED:', notification);
       
       // Check if this is a voice notification
       if (notification.data && notification.data.isVoice) {
         // Get settings to check if voice notifications are enabled
         const settings = await getSettings();
         
-        if (settings.enableVoiceNotifications) {
+        if (!settings || settings.enableVoiceNotifications !== false) {  // Default to enabled if settings don't exist
+          // First stop any currently playing message
+          stopVoiceMessage();
+          
+          // Format the message for TTS
+          let ttsMessage = notification.message || '';
+          
           // Play the voice message
-          playVoiceMessage(notification.message);
+          const result = await playVoiceMessage(ttsMessage);
+          console.log('TTS result:', result);
         }
       }
       
-      // If you need to handle clicking on the notification
+      // Handle notification click
       if (notification.userInteraction) {
-        // Navigate to a specific screen or perform action
+        console.log('User clicked notification', notification.id);
+        // Navigate or perform actions as needed
       }
     },
     
-    // (optional) Called when Token is generated (iOS and Android)
+    // Called when Token is generated (iOS and Android)
     onRegister: function (token) {
-      console.log('TOKEN:', token);
+      console.log('DEVICE TOKEN:', token);
     },
     
-    // (optional) Called when the user fails to register for notifications
+    // Called when registration fails
     onRegistrationError: function(err) {
-      console.error(err.message, err);
+      console.error('Notification registration error:', err);
     },
     
     // Should the initial notification be popped automatically (default: true)
     popInitialNotification: true,
     
-    // If permissions are requested automatically (default: true)
+    // Request permissions (iOS and Android >= 13)
     requestPermissions: true,
   });
   
   // Create a notification channel for Android
   PushNotification.createChannel(
     {
-      channelId: 'voice-reminders', // (required)
-      channelName: 'Voice Reminders', // (required)
-      channelDescription: 'Voice reminder notifications',
+      channelId: 'voice-reminders',           // Required
+      channelName: 'Voice Reminders',         // Required
+      channelDescription: 'Voice reminder notifications with TTS feedback',
       playSound: true,
       soundName: 'default',
-      importance: 4, // (optional) default: 4. Values: 1-5.
+      importance: 5,                          // Max importance to ensure delivery
       vibrate: true,
     },
-    (created) => console.log(`Channel created: ${created}`)
+    (created) => console.log(`Notification channel created: ${created}`)
   );
+  
+  return true;
 };
 
+// Schedule a notification
 export const scheduleNotification = async (reminder) => {
-  // Get app settings
-  const settings = await getSettings();
-  
-  // Schedule the notification
-  PushNotification.localNotificationSchedule({
-    channelId: 'voice-reminders',
-    id: reminder.id,
-    title: reminder.title,
-    message: reminder.message,
-    date: new Date(reminder.datetime),
-    allowWhileIdle: true, // (optional) notifications even when app is closed
-    playSound: true,
-    vibrate: settings.enableVibration,
+  try {
+    // Get app settings
+    const settings = await getSettings();
     
-    // Custom data
-    data: {
+    // Schedule the notification with proper formatting
+    PushNotification.localNotificationSchedule({
+      channelId: 'voice-reminders',
       id: reminder.id,
-      isVoice: reminder.isVoice,
-    },
+      title: reminder.title,
+      message: reminder.message,
+      date: new Date(reminder.datetime),
+      allowWhileIdle: true,          // Show notification even when app is closed
+      importance: 'high',            // (Android) Importance level
+      priority: 'high',              // (Android) Priority level
+      playSound: true,               // Play a sound
+      soundName: 'default',          // Sound to play
+      vibrate: settings?.enableVibration !== false, // Vibrate on notification
+      
+      // Custom data
+      data: {
+        id: reminder.id,
+        isVoice: true,               // Flag this as a voice notification
+        createdAt: new Date().toISOString(),
+      },
+    });
+    
+    console.log('Notification scheduled for:', new Date(reminder.datetime));
+    return true;
+  } catch (error) {
+    console.error('Failed to schedule notification:', error);
+    return false;
+  }
+};
+
+// Cancel a scheduled notification
+export const cancelNotification = (id) => {
+  try {
+    PushNotification.cancelLocalNotification(id);
+    console.log('Notification canceled:', id);
+    return true;
+  } catch (error) {
+    console.error('Failed to cancel notification:', error);
+    return false;
+  }
+};
+
+// Cancel all scheduled notifications
+export const cancelAllNotifications = () => {
+  try {
+    PushNotification.cancelAllLocalNotifications();
+    console.log('All notifications canceled');
+    return true;
+  } catch (error) {
+    console.error('Failed to cancel all notifications:', error);
+    return false;
+  }
+};
+
+// Get all scheduled notifications
+export const getScheduledNotifications = async () => {
+  return new Promise((resolve) => {
+    PushNotification.getScheduledLocalNotifications((notifications) => {
+      resolve(notifications);
+    });
   });
 };
 
-export const cancelNotification = (id) => {
-  PushNotification.cancelLocalNotification(id);
+// Immediately trigger a test notification with TTS
+export const testVoiceNotification = async (message = 'This is a test voice notification') => {
+  try {
+    PushNotification.localNotification({
+      channelId: 'voice-reminders',
+      title: 'Test Notification',
+      message: message,
+      playSound: true,
+      soundName: 'default',
+      importance: 'high',
+      priority: 'high',
+      
+      // Custom data
+      data: {
+        id: 'test-notification',
+        isVoice: true,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Test notification failed:', error);
+    return false;
+  }
 };

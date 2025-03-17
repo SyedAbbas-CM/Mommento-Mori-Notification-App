@@ -257,4 +257,7 @@ export default function MementoMoriScreen() {
             </View>
           </View>
         </View>
-      </Modal
+        </Modal>
+    </ScrollView>
+  );
+}
